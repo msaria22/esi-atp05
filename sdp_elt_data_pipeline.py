@@ -8,6 +8,7 @@ import re
 import git
 import logging
 import os
+import pandas as pd
 
 def extract_non_patch_releases(github_token: str=None, github_owner: str="scikit-learn", 
                      github_repository: str="scikit-learn") -> list[dict]:
@@ -256,6 +257,20 @@ def tansform_raw_dataset(dataset_file_path: str=None) -> None:
 
     # Escreva seu código aqui. Use o pandas para fazer essa tarefa
     # Ao final, salve as alterações em um arquivo como o neme contido em transformed_file_path 
+
+    df = pd.read_csv(dataset_file_path, sep=";")
+    df.dropna(inplace=True)
+    # Removendo arquivos de documentação e exemplos
+    df = df[~(df["FILE"].str.contains("/doc/"))]
+    df = df[~(df["FILE"].str.contains("/examples/"))]
+    # Removendo linhas onde mais de 75% das colunas são zero
+    df = df[(df == 0).sum(axis=1) < 0.25 * df.shape[1]]
+    # Removendo linhas que estão acima de 3 desvios padrões da média
+    df_num = df.select_dtypes(include='number')
+    df_bellow_std = (df_num - df_num.mean()).abs() <= 3 * df_num.std()
+    df = df[df_bellow_std.any(axis=1)]
+
+    df.to_csv(transformed_file_path, index=False)
 
     return transformed_file_path
 
